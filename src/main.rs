@@ -1,48 +1,138 @@
-use vrsc_rpc::{bitcoin::Txid, RpcApi};
+use std::{error::Error, fmt::Display, str::FromStr, thread, time::Duration};
+
+use vrsc::Address;
+use vrsc_rpc::{json::identity::NameCommitment, Client, RpcApi};
+
+#[macro_use]
+extern crate derive_more;
 
 fn main() {
-    println!("Hello, world!");
+    let identity = Identity::builder()
+        // .on_pbaas_chain("veth")
+        .name("jorianalpha")
+        .referral("jorian@")
+        .address(Address::from_str("RY8zHrPXDx7ecvZno55KFNKakvDf5n2KKL").unwrap())
+        .create();
 }
 
-pub struct IdentityBuilder {}
+pub struct Identity {}
 
-pub struct IdentityCommitment {
-    name: String,
-    salt: Option<String>,
-    parent: Option<String>,
-    address: Option<String>,
-    txid: Option<Txid>,
-}
-
-impl IdentityCommitment {
-    pub fn new(name: String, address: Option<String>) -> Self {
-        IdentityCommitment {
-            name,
-            address,
-            txid: None,
-            salt: None,
-            parent: None,
+impl Identity {
+    pub fn builder() -> IdentityBuilder {
+        IdentityBuilder {
+            pbaas: None,
+            name: None,
+            referral: None,
+            address: None,
         }
     }
+}
 
-    pub fn is_confirmed(&self) -> bool {
-        if let Some(txid) = self.txid.as_ref() {
-            if let Ok(client) = vrsc_rpc::Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile) {
-                if let Ok(raw_tx) = client.get_raw_transaction_verbose(txid) {
-                    match raw_tx.confirmations {
-                        Some(confs) => return confs > 0,
-                        None => return false,
+pub struct IdentityBuilder {
+    pbaas: Option<String>,
+    name: Option<String>,
+    referral: Option<String>,
+    address: Option<Address>,
+}
+
+impl IdentityBuilder {
+    pub fn on_pbaas_chain(&mut self, s: &str) -> &mut Self {
+        self.pbaas = Some(String::from(s));
+
+        self
+    }
+
+    pub fn name(&mut self, s: &str) -> &mut Self {
+        self.name = Some(String::from(s));
+
+        self
+    }
+
+    pub fn referral(&mut self, s: &str) -> &mut Self {
+        self.referral = Some(String::from(s));
+
+        self
+    }
+
+    pub fn address(&mut self, address: Address) -> &mut Self {
+        self.address = Some(address);
+
+        self
+    }
+
+    fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
+        let client = match &self.pbaas {
+            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
+            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+        };
+
+        if let Ok(client) = client {
+            let commitment = client.registernamecommitment(
+                self.name.clone().unwrap().as_ref(),
+                self.address.clone().unwrap(),
+                Some(self.referral.clone().unwrap()),
+            );
+
+            match commitment {
+                Ok(ncomm) => {
+                    let txid = ncomm.txid;
+
+                    loop {
+                        if let Ok(raw_tx) = client.get_raw_transaction_verbose(&txid) {
+                            match raw_tx.confirmations {
+                                Some(conf) => {
+                                    if conf > 0 {
+                                        return Ok(ncomm);
+                                    }
+                                }
+                                None => {}
+                            }
+                            println!("txid.{} not confirmed", txid.to_string());
+                            thread::sleep(Duration::from_secs(3));
+                        }
                     }
-                } else {
-                    println!("could not get raw transaction")
                 }
-            } else {
-                println!("failed to start client")
-            }
+                Err(e) => {
+                    println!("{:?}", e);
+                }
+            };
         } else {
-            println!("commitment has no txid, has it been committed?")
+            println!("failed to start client");
         }
 
-        false
+        Err(IdentityError {
+            kind: ErrorKind::Other("unsuccessful".to_string()),
+            source: None,
+        })
+    }
+
+    pub fn create(&mut self) -> Identity {
+        let name_commitment = self.register_name_commitment();
+        dbg!(name_commitment);
+
+        Identity {}
+    }
+}
+
+#[derive(Debug, Display)]
+#[display(fmt = "{}", kind)]
+pub struct IdentityError {
+    pub kind: ErrorKind,
+    source: Option<Box<dyn Error + Send + Sync + 'static>>,
+}
+
+#[derive(Debug, Display)]
+pub enum ErrorKind {
+    #[display(fmt = "Something went wrong during the komodod RPC.")]
+    ApiError(vrsc_rpc::Error),
+    Other(String),
+    // todo nonexhaustive to not have a breaking change when adding an error type
+}
+
+impl Error for IdentityError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.source
+            .as_ref()
+            .map(|boxed| boxed.as_ref() as &(dyn Error + 'static))
     }
 }
