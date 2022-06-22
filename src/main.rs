@@ -7,6 +7,7 @@ use vrsc_rpc::{json::identity::NameCommitment, Client, RpcApi};
 extern crate derive_more;
 
 fn main() {
+    println!("creating identity");
     let identity = Identity::builder()
         // .on_pbaas_chain("veth")
         .name("jorianalpha")
@@ -61,10 +62,13 @@ impl IdentityBuilder {
     }
 
     fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
+        println!("i got here");
         let client = match &self.pbaas {
             Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
             None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
         };
+
+        println!("i got here 2");
 
         if let Ok(client) = client {
             let commitment = client.registernamecommitment(
@@ -73,22 +77,30 @@ impl IdentityBuilder {
                 Some(self.referral.clone().unwrap()),
             );
 
+            println!("i got here 3");
+
             match commitment {
                 Ok(ncomm) => {
                     let txid = ncomm.txid;
+                    dbg!(&txid);
 
                     loop {
-                        if let Ok(raw_tx) = client.get_raw_transaction_verbose(&txid) {
-                            match raw_tx.confirmations {
-                                Some(conf) => {
-                                    if conf > 0 {
-                                        return Ok(ncomm);
+                        match client.get_raw_transaction_verbose(&txid) {
+                            Ok(raw_tx) => {
+                                match raw_tx.confirmations {
+                                    Some(conf) => {
+                                        if conf > 0 {
+                                            return Ok(ncomm);
+                                        }
                                     }
+                                    None => {}
                                 }
-                                None => {}
+                                println!("txid.{} not confirmed", txid.to_string());
+                                thread::sleep(Duration::from_secs(3));
                             }
-                            println!("txid.{} not confirmed", txid.to_string());
-                            thread::sleep(Duration::from_secs(3));
+                            Err(e) => {
+                                println!("{:?}", e);
+                            }
                         }
                     }
                 }
@@ -109,6 +121,8 @@ impl IdentityBuilder {
     pub fn create(&mut self) -> Identity {
         let name_commitment = self.register_name_commitment();
         dbg!(name_commitment);
+
+        // TODO do the registeridentity call here.
 
         Identity {}
     }
