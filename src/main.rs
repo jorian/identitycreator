@@ -13,8 +13,8 @@ fn main() {
     println!("creating identity");
     let identity = Identity::builder()
         // .on_pbaas_chain("veth")
-        .name("jorianalpha")
-        // .referral("jorian@")
+        .name("joriancharlie")
+        .referral("jorian@")
         .address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .create();
 }
@@ -77,7 +77,7 @@ impl IdentityBuilder {
             let commitment = client.registernamecommitment(
                 self.name.clone().unwrap().as_ref(),
                 self.address.clone().unwrap(),
-                None,
+                self.referral.clone(),
             );
 
             println!("i got here 3");
