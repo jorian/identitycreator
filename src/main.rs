@@ -17,28 +17,15 @@ fn main() {
     setup_logging();
 
     info!("creating identity");
+
+    // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     let _identity = Identity::builder()
-        // .on_pbaas_chain("veth")
-        .name("jorianecho")
+        .name("jorianfoxtrot")
         .referral("jorian@")
-        // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
         .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .add_address(Address::from_str("REwrXxaoo28BD5i8ycFEBK27jZXayGxyUj").unwrap())
+        .minimum_signatures(2)
         .create();
-}
-
-fn setup_logging() {
-    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
-        std::env::set_var("RUST_LIB_BACKTRACE", "1")
-    }
-    color_eyre::install().unwrap();
-
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "debug")
-    }
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
 }
 
 pub struct Identity {}
@@ -49,6 +36,7 @@ impl Identity {
             pbaas: None,
             name: None,
             referral: None,
+            minimum_signatures: None,
             addresses: None,
         }
     }
@@ -58,6 +46,8 @@ pub struct IdentityBuilder {
     pbaas: Option<String>,
     name: Option<String>,
     referral: Option<String>,
+    // defaults to 1
+    minimum_signatures: Option<u8>,
     addresses: Option<Vec<Address>>,
 }
 
@@ -76,6 +66,12 @@ impl IdentityBuilder {
 
     pub fn referral(&mut self, s: &str) -> &mut Self {
         self.referral = Some(String::from(s));
+
+        self
+    }
+
+    pub fn minimum_signatures(&mut self, s: u8) -> &mut Self {
+        self.minimum_signatures = Some(s);
 
         self
     }
@@ -156,6 +152,8 @@ impl IdentityBuilder {
     }
 
     pub fn create(&mut self) -> Identity {
+        // TODO if minimum_signatures > amount of addresses, error
+
         let name_commitment = self.register_name_commitment();
         dbg!(&name_commitment);
 
@@ -188,4 +186,18 @@ impl Error for IdentityError {
             .as_ref()
             .map(|boxed| boxed.as_ref() as &(dyn Error + 'static))
     }
+}
+
+fn setup_logging() {
+    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
+        std::env::set_var("RUST_LIB_BACKTRACE", "1")
+    }
+    color_eyre::install().unwrap();
+
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "debug")
+    }
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 }
