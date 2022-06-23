@@ -1,7 +1,10 @@
 use std::{error::Error, fmt::Display, str::FromStr, thread, time::Duration};
 
 use vrsc::Address;
-use vrsc_rpc::{json::identity::NameCommitment, Client, RpcApi};
+use vrsc_rpc::{
+    json::{identity::NameCommitment, TxOutResult},
+    Client, RpcApi,
+};
 
 #[macro_use]
 extern crate derive_more;
@@ -11,8 +14,8 @@ fn main() {
     let identity = Identity::builder()
         // .on_pbaas_chain("veth")
         .name("jorianalpha")
-        .referral("jorian@")
-        .address(Address::from_str("RY8zHrPXDx7ecvZno55KFNKakvDf5n2KKL").unwrap())
+        // .referral("jorian@")
+        .address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .create();
 }
 
@@ -74,7 +77,7 @@ impl IdentityBuilder {
             let commitment = client.registernamecommitment(
                 self.name.clone().unwrap().as_ref(),
                 self.address.clone().unwrap(),
-                Some(self.referral.clone().unwrap()),
+                None,
             );
 
             println!("i got here 3");
@@ -85,21 +88,17 @@ impl IdentityBuilder {
                     dbg!(&txid);
 
                     loop {
-                        match client.get_raw_transaction_verbose(&txid) {
-                            Ok(raw_tx) => {
-                                match raw_tx.confirmations {
-                                    Some(conf) => {
-                                        if conf > 0 {
-                                            return Ok(ncomm);
-                                        }
-                                    }
-                                    None => {}
+                        thread::sleep(Duration::from_secs(3));
+                        match client.get_transaction(&txid, Some(false)) {
+                            Ok(tx) => {
+                                if tx.confirmations > 0 {
+                                    return Ok(ncomm);
                                 }
                                 println!("txid.{} not confirmed", txid.to_string());
-                                thread::sleep(Duration::from_secs(3));
                             }
                             Err(e) => {
                                 println!("{:?}", e);
+                                break;
                             }
                         }
                     }
@@ -118,9 +117,23 @@ impl IdentityBuilder {
         })
     }
 
+    fn register_identity(&self, namecommitment: NameCommitment) {
+        let client = match &self.pbaas {
+            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
+            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+        };
+
+        if let Ok(client) = client {
+            let identity = client.registeridentity(namecommitment, self.address.clone().unwrap());
+            dbg!(identity);
+        }
+    }
+
     pub fn create(&mut self) -> Identity {
         let name_commitment = self.register_name_commitment();
-        dbg!(name_commitment);
+        dbg!(&name_commitment);
+
+        self.register_identity(name_commitment.unwrap());
 
         // TODO do the registeridentity call here.
 
