@@ -9,15 +9,21 @@ use tracing_subscriber::filter::EnvFilter;
 #[macro_use]
 extern crate derive_more;
 
+// TODO create an in-between build step to catch mistakes and impossibilities
+// - double addresses
+// TODO add error handling
+
 fn main() {
     setup_logging();
 
     info!("creating identity");
     let _identity = Identity::builder()
         // .on_pbaas_chain("veth")
-        .name("joriandelta")
+        .name("jorianecho")
         .referral("jorian@")
-        .address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
+        // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
+        .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
+        .add_address(Address::from_str("REwrXxaoo28BD5i8ycFEBK27jZXayGxyUj").unwrap())
         .create();
 }
 
@@ -43,7 +49,7 @@ impl Identity {
             pbaas: None,
             name: None,
             referral: None,
-            address: None,
+            addresses: None,
         }
     }
 }
@@ -52,7 +58,7 @@ pub struct IdentityBuilder {
     pbaas: Option<String>,
     name: Option<String>,
     referral: Option<String>,
-    address: Option<Address>,
+    addresses: Option<Vec<Address>>,
 }
 
 impl IdentityBuilder {
@@ -74,8 +80,15 @@ impl IdentityBuilder {
         self
     }
 
-    pub fn address(&mut self, address: Address) -> &mut Self {
-        self.address = Some(address);
+    pub fn add_address(&mut self, address: Address) -> &mut Self {
+        match self.addresses.as_mut() {
+            Some(vec) => {
+                vec.push(address);
+            }
+            None => {
+                self.addresses = Some(vec![address]);
+            }
+        }
 
         self
     }
@@ -89,7 +102,7 @@ impl IdentityBuilder {
         if let Ok(client) = client {
             let commitment = client.registernamecommitment(
                 self.name.clone().unwrap().as_ref(),
-                self.address.clone().unwrap(),
+                self.addresses.clone().unwrap().first().unwrap(),
                 self.referral.clone(),
             );
 
@@ -135,7 +148,7 @@ impl IdentityBuilder {
         };
 
         if let Ok(client) = client {
-            let identity = client.registeridentity(namecommitment, self.address.clone().unwrap());
+            let identity = client.registeridentity(namecommitment, self.addresses.clone().unwrap());
             debug!("{:?}", identity);
 
             info!("identity is created!")
