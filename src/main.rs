@@ -1,22 +1,38 @@
-use std::{error::Error, fmt::Display, str::FromStr, thread, time::Duration};
+use std::{error::Error, str::FromStr, thread, time::Duration};
 
 use vrsc::Address;
-use vrsc_rpc::{
-    json::{identity::NameCommitment, TxOutResult},
-    Client, RpcApi,
-};
+use vrsc_rpc::{json::identity::NameCommitment, Client, RpcApi};
+
+use tracing::*;
+use tracing_subscriber::filter::EnvFilter;
 
 #[macro_use]
 extern crate derive_more;
 
 fn main() {
-    println!("creating identity");
-    let identity = Identity::builder()
+    setup_logging();
+
+    info!("creating identity");
+    let _identity = Identity::builder()
         // .on_pbaas_chain("veth")
-        .name("joriancharlie")
+        .name("joriandelta")
         .referral("jorian@")
         .address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .create();
+}
+
+fn setup_logging() {
+    if std::env::var("RUST_LIB_BACKTRACE").is_err() {
+        std::env::set_var("RUST_LIB_BACKTRACE", "1")
+    }
+    color_eyre::install().unwrap();
+
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "debug")
+    }
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 }
 
 pub struct Identity {}
@@ -65,13 +81,10 @@ impl IdentityBuilder {
     }
 
     fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
-        println!("i got here");
         let client = match &self.pbaas {
             Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
             None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
         };
-
-        println!("i got here 2");
 
         if let Ok(client) = client {
             let commitment = client.registernamecommitment(
@@ -79,8 +92,6 @@ impl IdentityBuilder {
                 self.address.clone().unwrap(),
                 self.referral.clone(),
             );
-
-            println!("i got here 3");
 
             match commitment {
                 Ok(ncomm) => {
@@ -94,21 +105,21 @@ impl IdentityBuilder {
                                 if tx.confirmations > 0 {
                                     return Ok(ncomm);
                                 }
-                                println!("txid.{} not confirmed", txid.to_string());
+                                debug!("txid.{} not confirmed", txid.to_string());
                             }
                             Err(e) => {
-                                println!("{:?}", e);
+                                error!("{:?}", e);
                                 break;
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    println!("{:?}", e);
+                    error!("{:?}", e);
                 }
             };
         } else {
-            println!("failed to start client");
+            info!("failed to start client");
         }
 
         Err(IdentityError {
@@ -125,7 +136,9 @@ impl IdentityBuilder {
 
         if let Ok(client) = client {
             let identity = client.registeridentity(namecommitment, self.address.clone().unwrap());
-            dbg!(identity);
+            debug!("{:?}", identity);
+
+            info!("identity is created!")
         }
     }
 
