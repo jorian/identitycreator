@@ -20,11 +20,13 @@ fn main() {
 
     // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     let _identity = Identity::builder()
-        .name("jorianfoxtrot")
+        .name("jorianhotel")
         .referral("jorian@")
         .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
-        .add_address(Address::from_str("REwrXxaoo28BD5i8ycFEBK27jZXayGxyUj").unwrap())
-        .minimum_signatures(2)
+        .add_private_address(
+            "zs1e0s04c8swwrvzsa06cpa8suv70n0uftdnfy34je5fx2vz54ny4wttvl43ezy3kqmau6zc93kxr6",
+        )
+        .minimum_signatures(1)
         .create();
 }
 
@@ -38,6 +40,7 @@ impl Identity {
             referral: None,
             minimum_signatures: None,
             addresses: None,
+            private_address: None,
         }
     }
 }
@@ -49,6 +52,7 @@ pub struct IdentityBuilder {
     // defaults to 1
     minimum_signatures: Option<u8>,
     addresses: Option<Vec<Address>>,
+    private_address: Option<String>,
 }
 
 impl IdentityBuilder {
@@ -85,6 +89,12 @@ impl IdentityBuilder {
                 self.addresses = Some(vec![address]);
             }
         }
+
+        self
+    }
+
+    pub fn add_private_address(&mut self, s: &str) -> &mut Self {
+        self.private_address = Some(String::from(s));
 
         self
     }
@@ -144,7 +154,12 @@ impl IdentityBuilder {
         };
 
         if let Ok(client) = client {
-            let identity = client.registeridentity(namecommitment, self.addresses.clone().unwrap());
+            let identity = client.registeridentity(
+                namecommitment,
+                self.addresses.clone().unwrap(),
+                self.minimum_signatures,
+                self.private_address.clone(),
+            );
             debug!("{:?}", identity);
 
             info!("identity is created!")
@@ -157,7 +172,7 @@ impl IdentityBuilder {
         let name_commitment = self.register_name_commitment();
         dbg!(&name_commitment);
 
-        self.register_identity(name_commitment.unwrap());
+        let identity_response = self.register_identity(name_commitment.unwrap());
 
         // TODO do the registeridentity call here.
 
