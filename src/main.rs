@@ -1,7 +1,7 @@
 use std::{error::Error, str::FromStr, thread, time::Duration};
 
 use vrsc::Address;
-use vrsc_rpc::{json::identity::NameCommitment, Client, RpcApi};
+use vrsc_rpc::{bitcoin::Txid, json::identity::NameCommitment, Client, RpcApi};
 
 use tracing::*;
 use tracing_subscriber::filter::EnvFilter;
@@ -20,7 +20,7 @@ fn main() {
 
     // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     let _identity = Identity::builder()
-        .name("jorianhotel")
+        .name("jorianiowa")
         .referral("jorian@")
         .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .add_private_address(
@@ -30,7 +30,11 @@ fn main() {
         .create();
 }
 
-pub struct Identity {}
+pub struct Identity {
+    registration_txid: Txid,
+    name: String,
+    name_commitment: NameCommitment,
+}
 
 impl Identity {
     pub fn builder() -> IdentityBuilder {
@@ -99,84 +103,46 @@ impl IdentityBuilder {
         self
     }
 
-    fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
-        let client = match &self.pbaas {
-            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
-            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
-        };
-
-        if let Ok(client) = client {
-            let commitment = client.registernamecommitment(
-                self.name.clone().unwrap().as_ref(),
-                self.addresses.clone().unwrap().first().unwrap(),
-                self.referral.clone(),
-            );
-
-            match commitment {
-                Ok(ncomm) => {
-                    let txid = ncomm.txid;
-                    dbg!(&txid);
-
-                    loop {
-                        thread::sleep(Duration::from_secs(3));
-                        match client.get_transaction(&txid, Some(false)) {
-                            Ok(tx) => {
-                                if tx.confirmations > 0 {
-                                    return Ok(ncomm);
-                                }
-                                debug!("txid.{} not confirmed", txid.to_string());
-                            }
-                            Err(e) => {
-                                error!("{:?}", e);
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("{:?}", e);
-                }
-            };
-        } else {
-            info!("failed to start client");
-        }
-
-        Err(IdentityError {
-            kind: ErrorKind::Other("unsuccessful".to_string()),
-            source: None,
-        })
-    }
-
-    fn register_identity(&self, namecommitment: NameCommitment) {
-        let client = match &self.pbaas {
-            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
-            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
-        };
-
-        if let Ok(client) = client {
-            let identity = client.registeridentity(
-                namecommitment,
-                self.addresses.clone().unwrap(),
-                self.minimum_signatures,
-                self.private_address.clone(),
-            );
-            debug!("{:?}", identity);
-
-            info!("identity is created!")
-        }
-    }
-
-    pub fn create(&mut self) -> Identity {
+    pub fn create(&mut self) -> Result<Identity, IdentityError> {
         // TODO if minimum_signatures > amount of addresses, error
 
-        let name_commitment = self.register_name_commitment();
-        dbg!(&name_commitment);
+        let client = match &self.pbaas {
+            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
+            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+        }?;
+        let name_commitment = client.registernamecommitment(
+            self.name.clone().unwrap().as_ref(),
+            self.addresses.clone().unwrap().first().unwrap(),
+            self.referral.clone(),
+        )?;
 
-        let identity_response = self.register_identity(name_commitment.unwrap());
+        let txid = name_commitment.txid;
+        dbg!(&txid);
 
-        // TODO do the registeridentity call here.
+        loop {
+            thread::sleep(Duration::from_secs(3));
+            // TODO implement get_raw_transaction fix: https://github.com/VerusCoin/VerusCoin/issues/432
+            match client.get_transaction(&txid, Some(false)) {
+                Ok(tx) => {
+                    if tx.confirmations > 0 {
+                        // the identity can now by registered.
+                        let registration_txid = client.registeridentity(
+                            &name_commitment,
+                            self.addresses.clone().unwrap(),
+                            self.minimum_signatures,
+                            self.private_address.clone(),
+                        )?;
 
-        Identity {}
+                        return Ok(Identity {
+                            registration_txid,
+                            name: String::from(&name_commitment.namereservation.name),
+                            name_commitment,
+                        });
+                    }
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
     }
 }
 
@@ -200,6 +166,18 @@ impl Error for IdentityError {
         self.source
             .as_ref()
             .map(|boxed| boxed.as_ref() as &(dyn Error + 'static))
+    }
+}
+
+impl From<vrsc_rpc::Error> for IdentityError {
+    fn from(e: vrsc_rpc::Error) -> Self {
+        ErrorKind::ApiError(e).into()
+    }
+}
+
+impl From<ErrorKind> for IdentityError {
+    fn from(kind: ErrorKind) -> Self {
+        IdentityError { kind, source: None }
     }
 }
 
