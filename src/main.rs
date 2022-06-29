@@ -11,7 +11,6 @@ extern crate derive_more;
 
 // TODO create an in-between build step to catch mistakes and impossibilities
 // - double addresses
-// TODO add error handling
 
 fn main() {
     setup_logging();
@@ -19,17 +18,26 @@ fn main() {
     info!("creating identity");
 
     // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
-    let _identity = Identity::builder()
-        .name("jorianiowa")
+    match Identity::builder()
+        .name("joriankilo")
         .referral("jorian@")
         .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .add_private_address(
             "zs1e0s04c8swwrvzsa06cpa8suv70n0uftdnfy34je5fx2vz54ny4wttvl43ezy3kqmau6zc93kxr6",
         )
         .minimum_signatures(1)
-        .create();
+        .create()
+    {
+        Ok(identity) => {
+            info!("identity created:\n\n{:?}", identity)
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+        }
+    }
 }
 
+#[derive(Debug)]
 pub struct Identity {
     registration_txid: Txid,
     name: String,
@@ -117,7 +125,7 @@ impl IdentityBuilder {
         )?;
 
         let txid = name_commitment.txid;
-        dbg!(&txid);
+        debug!("{}", &txid);
 
         loop {
             thread::sleep(Duration::from_secs(3));
@@ -188,7 +196,7 @@ fn setup_logging() {
     color_eyre::install().unwrap();
 
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "debug")
+        std::env::set_var("RUST_LOG", "vrsc_rpc=info,identitycreator=debug")
     }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
