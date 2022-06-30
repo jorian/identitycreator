@@ -19,7 +19,7 @@ fn main() {
 
     // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     match Identity::builder()
-        .name("joriankilo")
+        .name("geckotest")
         .referral("jorian@")
         .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
         .add_private_address(
@@ -32,7 +32,7 @@ fn main() {
             info!("identity created:\n\n{:?}", identity)
         }
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{:?}", e);
         }
     }
 }
@@ -69,9 +69,10 @@ pub struct IdentityBuilder {
 
 impl IdentityBuilder {
     pub fn on_pbaas_chain(&mut self, s: &str) -> &mut Self {
-        self.pbaas = Some(String::from(s));
+        // self.pbaas = Some(String::from(s));
 
-        self
+        // self
+        unimplemented!("PBaaS chains use currencyidhex which are not supported yet")
     }
 
     pub fn name(&mut self, s: &str) -> &mut Self {
@@ -115,8 +116,12 @@ impl IdentityBuilder {
         // TODO if minimum_signatures > amount of addresses, error
 
         let client = match &self.pbaas {
-            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
-            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+            Some(chain) => Client::chain(
+                &chain,
+                vrsc_rpc::Auth::ConfigFile,
+                Some("c785392aca486120451d951a9f4637f2ef912dfc"),
+            ),
+            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
         }?;
         let name_commitment = client.registernamecommitment(
             self.name.clone().unwrap().as_ref(),
@@ -163,7 +168,7 @@ pub struct IdentityError {
 
 #[derive(Debug, Display)]
 pub enum ErrorKind {
-    #[display(fmt = "Something went wrong during the komodod RPC.")]
+    #[display(fmt = "Something went wrong while sending a request to the komodod RPC.")]
     ApiError(vrsc_rpc::Error),
     Other(String),
     // todo nonexhaustive to not have a breaking change when adding an error type
