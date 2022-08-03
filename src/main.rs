@@ -21,6 +21,7 @@ fn main() {
     // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     let _identity = Identity::builder()
         .testnet(true)
+        .on_currency_name("geckotest")
         .name("aaaaaa")
         // .referral("jorian@")
         .add_address(Address::from_str("RYZJLCWYze9Md4kH1CyYGufxTinKLZxSwo").unwrap())
@@ -34,6 +35,7 @@ impl Identity {
     pub fn builder() -> IdentityBuilder {
         IdentityBuilder {
             testnet: false,
+            currency_name: None,
             name: None,
             referral: None,
             minimum_signatures: None,
@@ -45,6 +47,7 @@ impl Identity {
 
 pub struct IdentityBuilder {
     testnet: bool,
+    currency_name: Option<String>,
     name: Option<String>,
     referral: Option<String>,
     // defaults to 1
@@ -56,6 +59,13 @@ pub struct IdentityBuilder {
 impl IdentityBuilder {
     pub fn testnet(&mut self, testnet: bool) -> &mut Self {
         self.testnet = testnet;
+
+        self
+    }
+
+    // Currently there is no way to convert a currency name to a currencyidhex.
+    pub fn on_currency_name<I: Into<String>>(&mut self, currency_name: I) -> &mut Self {
+        self.currency_name = Some(currency_name.into());
 
         self
     }
@@ -126,6 +136,7 @@ impl IdentityBuilder {
                 self.name.clone().unwrap().as_ref(),
                 self.addresses.clone().unwrap().first().unwrap(),
                 self.referral.clone(),
+                self.currency_name.clone(),
             )?;
 
             // match commitment {
@@ -175,6 +186,7 @@ impl IdentityBuilder {
                 self.addresses.clone().unwrap(),
                 self.minimum_signatures,
                 self.private_address.clone(),
+                self.currency_name.clone(),
             );
             debug!("{:?}", identity);
 
