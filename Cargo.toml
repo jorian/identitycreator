@@ -3,14 +3,18 @@ edition = "2021"
 name = "identitycreator"
 version = "0.1.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "identitycreatorapp"
+path = "src/main.rs"
+
+[lib]
+name = "identitycreator"
+path = "src/lib.rs"
 
 [dependencies]
 color-eyre = "0.6"
 derive_more = "0.99.17"
 tracing = "0.1.26"
 tracing-subscriber = {version = "0.3", features = ["env-filter"]}
-# vrsc = {path = "../rust-vrsc/"}
 vrsc = "0.0.1"
-# vrsc-rpc = {path = "../rust-vrsc-rpc/client"}
 vrsc-rpc = "0.0.3"
