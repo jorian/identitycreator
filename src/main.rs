@@ -1,7 +1,7 @@
 use std::{error::Error, str::FromStr, thread, time::Duration};
 
 use vrsc::Address;
-use vrsc_rpc::{json::identity::NameCommitment, Client, RpcApi};
+use vrsc_rpc::{bitcoin::Txid, json::identity::NameCommitment, Client, RpcApi};
 
 use tracing::*;
 use tracing_subscriber::filter::EnvFilter;
@@ -11,7 +11,6 @@ extern crate derive_more;
 
 // TODO create an in-between build step to catch mistakes and impossibilities
 // - double addresses
-// TODO add error handling
 
 fn main() {
     setup_logging();
@@ -29,7 +28,12 @@ fn main() {
         .create();
 }
 
-pub struct Identity {}
+#[derive(Debug)]
+pub struct Identity {
+    //     registration_txid: Txid,
+//     name: String,
+//     name_commitment: NameCommitment,
+}
 
 impl Identity {
     pub fn builder() -> IdentityBuilder {
@@ -67,7 +71,8 @@ impl IdentityBuilder {
     pub fn on_currency_name<I: Into<String>>(&mut self, currency_name: I) -> &mut Self {
         self.currency_name = Some(currency_name.into());
 
-        self
+        // self
+        unimplemented!("PBaaS chains use currencyidhex which are not supported yet")
     }
 
     pub fn name(&mut self, s: &str) -> &mut Self {
@@ -204,7 +209,7 @@ pub struct IdentityError {
 
 #[derive(Debug, Display)]
 pub enum ErrorKind {
-    #[display(fmt = "Something went wrong during the komodod RPC.")]
+    #[display(fmt = "Something went wrong while sending a request to the komodod RPC.")]
     ApiError(vrsc_rpc::Error),
     Other(String),
     // todo nonexhaustive to not have a breaking change when adding an error type
@@ -237,7 +242,7 @@ fn setup_logging() {
     color_eyre::install().unwrap();
 
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "debug")
+        std::env::set_var("RUST_LOG", "vrsc_rpc=info,identitycreator=debug")
     }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
