@@ -71,8 +71,7 @@ impl IdentityBuilder {
     pub fn on_currency_name<I: Into<String>>(&mut self, currency_name: I) -> &mut Self {
         self.currency_name = Some(currency_name.into());
 
-        // self
-        unimplemented!("PBaaS chains use currencyidhex which are not supported yet")
+        self
     }
 
     pub fn name(&mut self, s: &str) -> &mut Self {
