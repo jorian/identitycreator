@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
+use identitycreator::*;
 use tracing::*;
 use tracing_subscriber::filter::EnvFilter;
-
-use identitycreator::*;
 use vrsc::Address;
 
 #[tokio::main]
