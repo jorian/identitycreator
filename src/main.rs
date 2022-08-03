@@ -123,7 +123,18 @@ impl IdentityBuilder {
     }
 
     pub fn create(&mut self) -> Result<Identity, IdentityError> {
-        // TODO if minimum_signatures > amount of addresses, error
+        if let (Some(min_sigs), Some(addresses)) =
+            (self.minimum_signatures, self.addresses.as_ref())
+        {
+            if min_sigs > addresses.len() as u8 {
+                return Err(IdentityError {
+                    kind: ErrorKind::Other(String::from(
+                        "Cannot have more minimum_signatures than there are primary addresses",
+                    )),
+                    source: None,
+                });
+            }
+        }
 
         if self.name.is_none() {
             panic!("No identity name was given");
