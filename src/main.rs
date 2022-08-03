@@ -20,7 +20,7 @@ fn main() {
 
     // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     let _identity = Identity::builder()
-        .on_pbaas_chain("vrsctest")
+        .testnet(true)
         .name("aaaaaa")
         // .referral("jorian@")
         .add_address(Address::from_str("RYZJLCWYze9Md4kH1CyYGufxTinKLZxSwo").unwrap())
@@ -33,7 +33,7 @@ pub struct Identity {}
 impl Identity {
     pub fn builder() -> IdentityBuilder {
         IdentityBuilder {
-            pbaas: None,
+            testnet: false,
             name: None,
             referral: None,
             minimum_signatures: None,
@@ -44,7 +44,7 @@ impl Identity {
 }
 
 pub struct IdentityBuilder {
-    pbaas: Option<String>,
+    testnet: bool,
     name: Option<String>,
     referral: Option<String>,
     // defaults to 1
@@ -54,8 +54,8 @@ pub struct IdentityBuilder {
 }
 
 impl IdentityBuilder {
-    pub fn on_pbaas_chain(&mut self, s: &str) -> &mut Self {
-        self.pbaas = Some(String::from(s));
+    pub fn testnet(&mut self, testnet: bool) -> &mut Self {
+        self.testnet = testnet;
 
         self
     }
@@ -116,9 +116,9 @@ impl IdentityBuilder {
     }
 
     fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
-        let client = match &self.pbaas {
-            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
-            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+        let client = match self.testnet {
+            false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile),
+            true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
         };
 
         if let Ok(client) = client {
@@ -164,9 +164,9 @@ impl IdentityBuilder {
     }
 
     fn register_identity(&self, namecommitment: NameCommitment) {
-        let client = match &self.pbaas {
-            Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
-            None => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+        let client = match self.testnet {
+            false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile),
+            true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
         };
 
         if let Ok(client) = client {
