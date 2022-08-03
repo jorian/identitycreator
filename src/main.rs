@@ -23,7 +23,7 @@ fn main() {
         .on_currency_name("geckotest")
         .name("aaaaaa")
         // .referral("jorian@")
-        .add_address(Address::from_str("RYZJLCWYze9Md4kH1CyYGufxTinKLZxSwo").unwrap())
+        .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .minimum_signatures(1)
         .create();
 }
@@ -132,8 +132,8 @@ impl IdentityBuilder {
 
     fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
         let client = match self.testnet {
-            false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile),
-            true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+            false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
+            true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
         };
 
         if let Ok(client) = client {
@@ -181,13 +181,13 @@ impl IdentityBuilder {
 
     fn register_identity(&self, namecommitment: NameCommitment) {
         let client = match self.testnet {
-            false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile),
-            true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile),
+            false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
+            true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
         };
 
         if let Ok(client) = client {
             let identity = client.registeridentity(
-                namecommitment,
+                &namecommitment,
                 self.addresses.clone().unwrap(),
                 self.minimum_signatures,
                 self.private_address.clone(),
