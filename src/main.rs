@@ -18,7 +18,7 @@ fn main() {
     info!("creating identity");
 
     // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
-    let _identity = Identity::builder()
+    let identity_result = Identity::builder()
         .testnet(true)
         .on_currency_name("geckotest")
         .name("aaaaab")
@@ -26,13 +26,24 @@ fn main() {
         .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .minimum_signatures(1)
         .create();
+
+    match identity_result {
+        Ok(identity) => {
+            info!(
+                "identity `{}` has been created! (txid: {})",
+                identity.name_commitment.namereservation.name, identity.registration_txid
+            )
+        }
+        Err(e) => {
+            error!("something went wrong: {:?}", e)
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct Identity {
-    // name_commitment: NameCommitment,
-// registration_txid: Txid,
-// name: String,
+    name_commitment: NameCommitment,
+    registration_txid: Txid,
 }
 
 impl Identity {
@@ -111,7 +122,7 @@ impl IdentityBuilder {
         self
     }
 
-    pub fn create(&mut self) -> Identity {
+    pub fn create(&mut self) -> Result<Identity, IdentityError> {
         // TODO if minimum_signatures > amount of addresses, error
 
         if self.name.is_none() {
@@ -122,11 +133,15 @@ impl IdentityBuilder {
             panic!("no primary address given, need at least 1");
         }
 
-        let name_commitment = self.register_name_commitment();
+        let name_commitment = self.register_name_commitment()?;
         debug!("{:?}", &name_commitment);
 
-        let identity_response = self.register_identity(name_commitment.unwrap());
-        Identity {}
+        let identity_response = self.register_identity(&name_commitment)?;
+
+        Ok(Identity {
+            registration_txid: identity_response,
+            name_commitment: name_commitment,
+        })
     }
 
     fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
@@ -173,7 +188,7 @@ impl IdentityBuilder {
         }
     }
 
-    fn register_identity(&self, namecommitment: NameCommitment) -> Result<Txid, IdentityError> {
+    fn register_identity(&self, namecommitment: &NameCommitment) -> Result<Txid, IdentityError> {
         let client = match self.testnet {
             false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
             true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
