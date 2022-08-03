@@ -6,7 +6,8 @@ use tracing_subscriber::filter::EnvFilter;
 use identitycreator::*;
 use vrsc::Address;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     setup_logging();
 
     info!("creating identity");
@@ -15,11 +16,12 @@ fn main() {
     let identity_result = Identity::builder()
         .testnet(true)
         .on_currency_name("geckotest")
-        .name("aaaaac")
-        .referral("aaaaab.geckotest@")
+        .name("aaaaad")
+        // .referral("aaaaab.geckotest@")
         .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .minimum_signatures(1)
-        .create();
+        .create()
+        .await;
 
     match identity_result {
         Ok(identity) => {

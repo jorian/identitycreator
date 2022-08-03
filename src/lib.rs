@@ -88,7 +88,7 @@ impl IdentityBuilder {
         self
     }
 
-    pub fn create(&mut self) -> Result<Identity, IdentityError> {
+    pub async fn create(&mut self) -> Result<Identity, IdentityError> {
         if let (Some(min_sigs), Some(addresses)) =
             (self.minimum_signatures, self.addresses.as_ref())
         {
@@ -110,10 +110,10 @@ impl IdentityBuilder {
             panic!("no primary address given, need at least 1");
         }
 
-        let name_commitment = self.register_name_commitment()?;
+        let name_commitment = self.register_name_commitment().await?;
         debug!("{:?}", &name_commitment);
 
-        let identity_response = self.register_identity(&name_commitment)?;
+        let identity_response = self.register_identity(&name_commitment).await?;
 
         Ok(Identity {
             registration_txid: identity_response,
@@ -121,7 +121,7 @@ impl IdentityBuilder {
         })
     }
 
-    fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
+    async fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
         let client = match self.testnet {
             false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
             true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
@@ -165,7 +165,10 @@ impl IdentityBuilder {
         }
     }
 
-    fn register_identity(&self, namecommitment: &NameCommitment) -> Result<Txid, IdentityError> {
+    async fn register_identity(
+        &self,
+        namecommitment: &NameCommitment,
+    ) -> Result<Txid, IdentityError> {
         let client = match self.testnet {
             false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
             true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
