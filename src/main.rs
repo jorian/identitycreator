@@ -21,7 +21,7 @@ fn main() {
     let _identity = Identity::builder()
         .testnet(true)
         .on_currency_name("geckotest")
-        .name("aaaaaa")
+        .name("aaaaab")
         // .referral("jorian@")
         .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .minimum_signatures(1)
@@ -30,9 +30,9 @@ fn main() {
 
 #[derive(Debug)]
 pub struct Identity {
-    //     registration_txid: Txid,
-//     name: String,
-//     name_commitment: NameCommitment,
+    // name_commitment: NameCommitment,
+// registration_txid: Txid,
+// name: String,
 }
 
 impl Identity {
@@ -123,7 +123,7 @@ impl IdentityBuilder {
         }
 
         let name_commitment = self.register_name_commitment();
-        dbg!(&name_commitment);
+        debug!("{:?}", &name_commitment);
 
         let identity_response = self.register_identity(name_commitment.unwrap());
         Identity {}
@@ -133,69 +133,67 @@ impl IdentityBuilder {
         let client = match self.testnet {
             false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
             true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
-        };
+        }?;
 
-        if let Ok(client) = client {
-            let commitment = client.registernamecommitment(
-                self.name.clone().unwrap().as_ref(),
-                self.addresses.clone().unwrap().first().unwrap(),
-                self.referral.clone(),
-                self.currency_name.clone(),
-            )?;
+        let commitment = client.registernamecommitment(
+            self.name.clone().unwrap().as_ref(),
+            self.addresses.clone().unwrap().first().unwrap(),
+            self.referral.clone(),
+            self.currency_name.clone(),
+        )?;
 
-            // match commitment {
-            //     Ok(ncomm) => {
-            let txid = commitment.txid;
-            dbg!(&txid);
+        let txid = commitment.txid;
+        dbg!(&txid);
 
-            loop {
-                thread::sleep(Duration::from_secs(3));
-                match client.get_transaction(&txid, Some(false)) {
-                    Ok(tx) => {
-                        if tx.confirmations > 0 {
-                            return Ok(commitment);
-                        }
-                        debug!("txid.{} not confirmed", txid.to_string());
+        let mut retries = 0;
+        loop {
+            match client.get_transaction(&txid, Some(false)) {
+                Ok(tx) => {
+                    if tx.confirmations > 0 {
+                        return Ok(commitment);
                     }
-                    Err(e) => {
-                        error!("{:?}", e);
-                        break;
+                    debug!("txid.{} not confirmed", txid.to_string());
+                    thread::sleep(Duration::from_secs(3));
+                }
+                Err(e) => {
+                    error!("{:?}", e);
+                    if e.to_string().contains("non-wallet transaction") {
+                        if retries > 20000 {
+                            error!("waited too long for non-wallet transaction, abort");
+                            return Err(e.into());
+                        }
+                        error!("transaction not yet in wallet, wait");
+                        thread::sleep(Duration::from_millis(100));
+                        retries += 1;
+                    } else {
+                        return Err(e.into());
                     }
                 }
             }
-            //     }
-            //     Err(e) => {
-            //         error!("{:?}", e);
-            //     }
-            // };
-        } else {
-            info!("failed to start client");
         }
-
-        Err(IdentityError {
-            kind: ErrorKind::Other("unsuccessful".to_string()),
-            source: None,
-        })
     }
 
-    fn register_identity(&self, namecommitment: NameCommitment) {
+    fn register_identity(&self, namecommitment: NameCommitment) -> Result<Txid, IdentityError> {
         let client = match self.testnet {
             false => Client::chain("VRSC", vrsc_rpc::Auth::ConfigFile, None),
             true => Client::chain("vrsctest", vrsc_rpc::Auth::ConfigFile, None),
-        };
+        }?;
 
-        if let Ok(client) = client {
-            let identity = client.registeridentity(
-                &namecommitment,
-                self.addresses.clone().unwrap(),
-                self.minimum_signatures,
-                self.private_address.clone(),
-                self.currency_name.clone(),
-            );
-            debug!("{:?}", identity);
+        let id_txid = client.registeridentity(
+            &namecommitment,
+            self.addresses.clone().unwrap(),
+            self.minimum_signatures,
+            self.private_address.clone(),
+            self.currency_name.clone(),
+        )?;
+        debug!("{:?}", id_txid);
 
-            info!("identity is created!")
-        }
+        info!(
+            "identity `{}` is created!",
+            &namecommitment.namereservation.name
+        );
+
+        Ok(id_txid)
     }
 }
 
@@ -209,9 +207,8 @@ pub struct IdentityError {
 #[derive(Debug, Display)]
 pub enum ErrorKind {
     #[display(fmt = "Something went wrong while sending a request to the komodod RPC.")]
-    ApiError(vrsc_rpc::Error),
+    VrscRpcError(vrsc_rpc::Error),
     Other(String),
-    // todo nonexhaustive to not have a breaking change when adding an error type
 }
 
 impl Error for IdentityError {
@@ -230,7 +227,7 @@ impl From<ErrorKind> for IdentityError {
 
 impl From<vrsc_rpc::Error> for IdentityError {
     fn from(e: vrsc_rpc::Error) -> Self {
-        ErrorKind::ApiError(e).into()
+        ErrorKind::VrscRpcError(e).into()
     }
 }
 
