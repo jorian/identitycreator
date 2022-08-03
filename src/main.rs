@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate derive_more;
 use std::{error::Error, str::FromStr, thread, time::Duration};
 
 use vrsc::Address;
@@ -5,12 +7,6 @@ use vrsc_rpc::{bitcoin::Txid, json::identity::NameCommitment, Client, RpcApi};
 
 use tracing::*;
 use tracing_subscriber::filter::EnvFilter;
-
-#[macro_use]
-extern crate derive_more;
-
-// TODO create an in-between build step to catch mistakes and impossibilities
-// - double addresses
 
 fn main() {
     setup_logging();

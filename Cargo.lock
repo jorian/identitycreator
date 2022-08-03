@@ -716,6 +716,8 @@ checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 [[package]]
 name = "vrsc"
 version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55f86106343a5eec81e667a9b1c2a5aef4bb768956d46b40654d3f6b4a8ae6fc"
 dependencies = [
  "bitcoin 0.26.2",
  "bitcoin_hashes 0.10.0",
@@ -725,7 +727,9 @@ dependencies = [
 
 [[package]]
 name = "vrsc-rpc"
-version = "0.0.2"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce4bdb4a6ad4c056720c66e12bbf0218b270e50917f866d94f148a847b38a586"
 dependencies = [
  "dirs",
  "jsonrpc",
@@ -739,7 +743,9 @@ dependencies = [
 
 [[package]]
 name = "vrsc-rpc-json"
-version = "0.0.2"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f011baa6344c1e4f551b5938acb7705b39c71754fd6ccdddeac88a2e18304c12"
 dependencies = [
  "bitcoin 0.27.1",
  "hex",
