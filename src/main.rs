@@ -18,6 +18,9 @@ async fn main() {
         .name("aaaaad")
         // .referral("aaaaab.geckotest@")
         .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
+        .add_private_address(
+            "zs1pf0pjumxr6k5zdwupl8tnl58gqrpklznxhypjlzp3reaqpxdh0ce7qj2u7qfp8z8mc9pc39epgm",
+        )
         .minimum_signatures(1)
         .create()
         .await;
