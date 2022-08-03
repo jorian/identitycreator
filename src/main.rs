@@ -18,14 +18,12 @@ fn main() {
 
     info!("creating identity");
 
-    // it is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
+    // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     let _identity = Identity::builder()
-        .name("jorianhotel")
-        .referral("jorian@")
-        .add_address(Address::from_str("RLGn1rQMUKcy5Yh2xNts7U9bd9SvF7k6uE").unwrap())
-        .add_private_address(
-            "zs1e0s04c8swwrvzsa06cpa8suv70n0uftdnfy34je5fx2vz54ny4wttvl43ezy3kqmau6zc93kxr6",
-        )
+        .on_pbaas_chain("vrsctest")
+        .name("aaaaaa")
+        // .referral("jorian@")
+        .add_address(Address::from_str("RYZJLCWYze9Md4kH1CyYGufxTinKLZxSwo").unwrap())
         .minimum_signatures(1)
         .create();
 }
@@ -99,6 +97,24 @@ impl IdentityBuilder {
         self
     }
 
+    pub fn create(&mut self) -> Identity {
+        // TODO if minimum_signatures > amount of addresses, error
+
+        if self.name.is_none() {
+            panic!("No identity name was given");
+        }
+
+        if self.addresses.is_none() || self.addresses.as_ref().unwrap().is_empty() {
+            panic!("no primary address given, need at least 1");
+        }
+
+        let name_commitment = self.register_name_commitment();
+        dbg!(&name_commitment);
+
+        let identity_response = self.register_identity(name_commitment.unwrap());
+        Identity {}
+    }
+
     fn register_name_commitment(&mut self) -> Result<NameCommitment, IdentityError> {
         let client = match &self.pbaas {
             Some(chain) => Client::chain(&chain, vrsc_rpc::Auth::ConfigFile),
@@ -110,33 +126,33 @@ impl IdentityBuilder {
                 self.name.clone().unwrap().as_ref(),
                 self.addresses.clone().unwrap().first().unwrap(),
                 self.referral.clone(),
-            );
+            )?;
 
-            match commitment {
-                Ok(ncomm) => {
-                    let txid = ncomm.txid;
-                    dbg!(&txid);
+            // match commitment {
+            //     Ok(ncomm) => {
+            let txid = commitment.txid;
+            dbg!(&txid);
 
-                    loop {
-                        thread::sleep(Duration::from_secs(3));
-                        match client.get_transaction(&txid, Some(false)) {
-                            Ok(tx) => {
-                                if tx.confirmations > 0 {
-                                    return Ok(ncomm);
-                                }
-                                debug!("txid.{} not confirmed", txid.to_string());
-                            }
-                            Err(e) => {
-                                error!("{:?}", e);
-                                break;
-                            }
+            loop {
+                thread::sleep(Duration::from_secs(3));
+                match client.get_transaction(&txid, Some(false)) {
+                    Ok(tx) => {
+                        if tx.confirmations > 0 {
+                            return Ok(commitment);
                         }
+                        debug!("txid.{} not confirmed", txid.to_string());
+                    }
+                    Err(e) => {
+                        error!("{:?}", e);
+                        break;
                     }
                 }
-                Err(e) => {
-                    error!("{:?}", e);
-                }
-            };
+            }
+            //     }
+            //     Err(e) => {
+            //         error!("{:?}", e);
+            //     }
+            // };
         } else {
             info!("failed to start client");
         }
@@ -165,19 +181,6 @@ impl IdentityBuilder {
             info!("identity is created!")
         }
     }
-
-    pub fn create(&mut self) -> Identity {
-        // TODO if minimum_signatures > amount of addresses, error
-
-        let name_commitment = self.register_name_commitment();
-        dbg!(&name_commitment);
-
-        let identity_response = self.register_identity(name_commitment.unwrap());
-
-        // TODO do the registeridentity call here.
-
-        Identity {}
-    }
 }
 
 #[derive(Debug, Display)]
@@ -200,6 +203,18 @@ impl Error for IdentityError {
         self.source
             .as_ref()
             .map(|boxed| boxed.as_ref() as &(dyn Error + 'static))
+    }
+}
+
+impl From<ErrorKind> for IdentityError {
+    fn from(kind: ErrorKind) -> Self {
+        IdentityError { kind, source: None }
+    }
+}
+
+impl From<vrsc_rpc::Error> for IdentityError {
+    fn from(e: vrsc_rpc::Error) -> Self {
+        ErrorKind::ApiError(e).into()
     }
 }
 
