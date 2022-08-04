@@ -29,12 +29,6 @@ impl Identity {
     }
 }
 
-// pub trait ContentMap {
-//     type Value;
-// }
-
-// pub struct
-
 #[derive(Debug)]
 pub struct IdentityBuilder {
     testnet: bool,
@@ -148,15 +142,30 @@ impl IdentityBuilder {
             // check lengths
             for (key, value) in cm {
                 if key.len() > 20 {
-                    return Err(
-                        ErrorKind::Other(String::from("key length too long, max 20")).into(),
-                    );
+                    return Err(ErrorKind::Other(format!(
+                        "key length {} too long, max 20",
+                        key.len()
+                    ))
+                    .into());
                 }
 
-                if value.is_string() {
-                    if value.as_str().unwrap().len() > 32 {
-                        return Err(ErrorKind::Other(String::from(
-                            "value length too long, max 32",
+                if hex::decode(&key).is_err() {
+                    return Err(ErrorKind::Other(format!("key is not valid hex: {}", &key)).into());
+                }
+
+                if let Some(value_str) = value.as_str() {
+                    if value_str.len() > 32 {
+                        return Err(ErrorKind::Other(format!(
+                            "value length {} too long, max 32",
+                            value_str.len()
+                        ))
+                        .into());
+                    }
+
+                    if hex::decode(value_str).is_err() {
+                        return Err(ErrorKind::Other(format!(
+                            "value is not valid hex: {}",
+                            value_str
                         ))
                         .into());
                     }
@@ -292,16 +301,34 @@ impl From<vrsc_rpc::Error> for IdentityError {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use vrsc::Address;
     use vrsc_rpc::jsonrpc::serde_json::json;
 
     use crate::Identity;
 
     #[test]
-    fn it_works() {
+    fn good_contentmap() {
         let mut identity_builder = Identity::builder();
 
-        identity_builder.with_content_map(json!({ "an": "object"}));
+        assert!(identity_builder
+            .name("test")
+            .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
+            .with_content_map(json!({ "deadbeef": "deafdeed"}))
+            .validate()
+            .is_ok());
+    }
 
-        dbg!(identity_builder);
+    #[test]
+    fn bad_contentmap() {
+        let mut identity_builder = Identity::builder();
+
+        assert!(identity_builder
+            .name("test")
+            .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
+            .with_content_map(json!({ "a non hex": "object"}))
+            .validate()
+            .is_err());
     }
 }
