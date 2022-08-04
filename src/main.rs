@@ -4,6 +4,7 @@ use identitycreator::*;
 use tracing::*;
 use tracing_subscriber::filter::EnvFilter;
 use vrsc::Address;
+use vrsc_rpc::jsonrpc::serde_json::json;
 
 #[tokio::main]
 async fn main() {
@@ -15,13 +16,14 @@ async fn main() {
     if let Ok(identity_builder) = Identity::builder()
         .testnet(true)
         .on_currency_name("geckotest")
-        .name("aaaaad")
+        .name("aaaaah")
         // .referral("aaaaab.geckotest@")
         .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .add_private_address(
             "zs1pf0pjumxr6k5zdwupl8tnl58gqrpklznxhypjlzp3reaqpxdh0ce7qj2u7qfp8z8mc9pc39epgm",
         )
         .minimum_signatures(1)
+        .with_content_map(json!({ "deadbeef": "deadbeef"}))
         .validate()
     {
         let identity_result = identity_builder.create_identity().await;

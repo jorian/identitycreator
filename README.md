@@ -21,33 +21,36 @@ use std::str::FromStr;
 
 use identitycreator::*;
 use vrsc::Address;
+use vrsc_rpc::jsonrpc::serde_json::json;
 
 #[tokio::main]
 async fn main() {
     // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
-    let identity_result = Identity::builder()
-        .testnet(true) // (optional) default: false
-        .on_currency_name("geckotest") // (optional) when given, the name of the currency is used as a parent to issue sub-ids on
-        .name("aaaaad") // (required) the name of the identity
-        .referral("aaaaab.geckotest@") // (optional) referral
-        .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap()) // (required) at least 1 primary address
+    if let Ok(identity_builder) = Identity::builder()
+        .testnet(true)
+        .on_currency_name("geckotest")
+        .name("aaaaad")
+        // .referral("aaaaab.geckotest@")
+        .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .add_private_address(
             "zs1pf0pjumxr6k5zdwupl8tnl58gqrpklznxhypjlzp3reaqpxdh0ce7qj2u7qfp8z8mc9pc39epgm",
-        ) // (optional)
-        .minimum_signatures(1) // (optional)
-        .create()
-        .await;
+        )
+        .minimum_signatures(1)
+        .with_content_map(json!({ "deadbeef": "deadbeef"}))
+        .validate()
+    {
+        let identity_result = identity_builder.create_identity().await;
 
-    match identity_result {
-        Ok(identity) => {
-            info!(
-                "identity `{}` has been created! (txid: {})",
-                identity.name_commitment.namereservation.name,
-                identity.registration_txid
-            )
-        }
-        Err(e) => {
-            error!("something went wrong: {:?}", e)
+        match identity_result {
+            Ok(identity) => {
+                info!(
+                    "identity `{}` has been created! (txid: {})",
+                    identity.name_commitment.namereservation.name, identity.registration_txid
+                )
+            }
+            Err(e) => {
+                error!("something went wrong: {:?}", e)
+            }
         }
     }
 }
@@ -60,5 +63,6 @@ This library depends on the `vrsc-rpc` library, which is a RPC wrapper for the V
 ## Todo
 
 - make use of zmq to wait for new block, instead of polling
-- add contentmap
+- incorporate the `updateidentity` call
+- ~~add contentmap~~
 - ~~make async~~
