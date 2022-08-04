@@ -253,6 +253,7 @@ impl IdentityBuilder {
             self.minimum_signatures,
             self.private_address.clone(),
             self.currency_name.clone(),
+            self.content_map.clone(),
         )?;
         debug!("{:?}", id_txid);
 

@@ -16,7 +16,7 @@ async fn main() {
     if let Ok(identity_builder) = Identity::builder()
         .testnet(true)
         .on_currency_name("geckotest")
-        .name("aaaaah")
+        .name("aaaaai")
         // .referral("aaaaab.geckotest@")
         .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
         .add_private_address(
