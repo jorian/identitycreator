@@ -4,7 +4,9 @@ use std::{error::Error, thread, time::Duration};
 use tracing::*;
 
 use vrsc::Address;
-use vrsc_rpc::{bitcoin::Txid, json::identity::NameCommitment, Client, RpcApi};
+use vrsc_rpc::{
+    bitcoin::Txid, json::identity::NameCommitment, jsonrpc::serde_json::Value, Client, RpcApi,
+};
 
 #[derive(Debug)]
 pub struct Identity {
@@ -22,10 +24,18 @@ impl Identity {
             minimum_signatures: None,
             addresses: None,
             private_address: None,
+            content_map: None,
         }
     }
 }
 
+// pub trait ContentMap {
+//     type Value;
+// }
+
+// pub struct
+
+#[derive(Debug)]
 pub struct IdentityBuilder {
     testnet: bool,
     currency_name: Option<String>,
@@ -35,6 +45,7 @@ pub struct IdentityBuilder {
     minimum_signatures: Option<u8>,
     addresses: Option<Vec<Address>>,
     private_address: Option<String>,
+    content_map: Option<Value>,
 }
 
 impl IdentityBuilder {
@@ -88,7 +99,13 @@ impl IdentityBuilder {
         self
     }
 
-    pub async fn create(&mut self) -> Result<Identity, IdentityError> {
+    pub fn with_content_map(&mut self, cm: Value) -> &mut Self {
+        self.content_map = Some(cm);
+
+        self
+    }
+
+    pub fn validate(&mut self) -> Result<&mut Self, IdentityError> {
         if let (Some(min_sigs), Some(addresses)) =
             (self.minimum_signatures, self.addresses.as_ref())
         {
@@ -103,13 +120,60 @@ impl IdentityBuilder {
         }
 
         if self.name.is_none() {
-            panic!("No identity name was given");
+            return Err(ErrorKind::Other(String::from("No identity name was given")).into());
         }
 
         if self.addresses.is_none() || self.addresses.as_ref().unwrap().is_empty() {
-            panic!("no primary address given, need at least 1");
+            return Err(ErrorKind::Other(String::from(
+                "no primary address given, need at least 1",
+            ))
+            .into());
         }
 
+        // a content map has certain limitations:
+        // std::vector<std::pair<uint160, uint256>>
+        // It is an opaque blob of 256 bits and has no integer operations.
+        // it's an unsigned 160 bit integer, represented as an array of bytes. 1 byte is 8 bits, so 160 / 8 = 20 bytes.
+        // it's an unsigned 256 bit integer, represented as an array of bytes. 1 byte is 8 bits, so 256 / 8 = 32 bytes.
+        // it's represented in hex, which is base 16.
+        // so, the limitations of contentmap seem to be that
+        // - it has to be hex
+        // - the key must be 20 bytes long
+        // - the value must be 32 bytes long.
+        // any shorter keys or values will add zeroes to the left until it fits, non-hex values are ignored.
+        if let Some(contentmap) = self.content_map.as_ref() {
+            let cm = contentmap.as_object().unwrap();
+            debug!("{:?}", &cm);
+
+            // check lengths
+            for (key, value) in cm {
+                if key.len() > 20 {
+                    return Err(
+                        ErrorKind::Other(String::from("key length too long, max 20")).into(),
+                    );
+                }
+
+                if value.is_string() {
+                    if value.as_str().unwrap().len() > 32 {
+                        return Err(ErrorKind::Other(String::from(
+                            "value length too long, max 32",
+                        ))
+                        .into());
+                    }
+                } else {
+                    return Err(ErrorKind::Other(format!(
+                        "wrong type for contentmap value: {}",
+                        value.to_string(),
+                    ))
+                    .into());
+                }
+            }
+        }
+
+        Ok(self)
+    }
+
+    pub async fn create_identity(&mut self) -> Result<Identity, IdentityError> {
         let name_commitment = self.register_name_commitment().await?;
         debug!("{:?}", &name_commitment);
 
@@ -223,5 +287,21 @@ impl From<ErrorKind> for IdentityError {
 impl From<vrsc_rpc::Error> for IdentityError {
     fn from(e: vrsc_rpc::Error) -> Self {
         ErrorKind::VrscRpcError(e).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use vrsc_rpc::jsonrpc::serde_json::json;
+
+    use crate::Identity;
+
+    #[test]
+    fn it_works() {
+        let mut identity_builder = Identity::builder();
+
+        identity_builder.with_content_map(json!({ "an": "object"}));
+
+        dbg!(identity_builder);
     }
 }

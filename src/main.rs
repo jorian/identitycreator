@@ -12,7 +12,7 @@ async fn main() {
     info!("creating identity");
 
     // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
-    let identity_result = Identity::builder()
+    if let Ok(identity_builder) = Identity::builder()
         .testnet(true)
         .on_currency_name("geckotest")
         .name("aaaaad")
@@ -22,18 +22,20 @@ async fn main() {
             "zs1pf0pjumxr6k5zdwupl8tnl58gqrpklznxhypjlzp3reaqpxdh0ce7qj2u7qfp8z8mc9pc39epgm",
         )
         .minimum_signatures(1)
-        .create()
-        .await;
+        .validate()
+    {
+        let identity_result = identity_builder.create_identity().await;
 
-    match identity_result {
-        Ok(identity) => {
-            info!(
-                "identity `{}` has been created! (txid: {})",
-                identity.name_commitment.namereservation.name, identity.registration_txid
-            )
-        }
-        Err(e) => {
-            error!("something went wrong: {:?}", e)
+        match identity_result {
+            Ok(identity) => {
+                info!(
+                    "identity `{}` has been created! (txid: {})",
+                    identity.name_commitment.namereservation.name, identity.registration_txid
+                )
+            }
+            Err(e) => {
+                error!("something went wrong: {:?}", e)
+            }
         }
     }
 }
