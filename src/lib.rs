@@ -249,7 +249,7 @@ impl IdentityBuilder {
 
         let id_txid = client.registeridentity(
             &namecommitment,
-            self.addresses.clone().unwrap(),
+            self.addresses.as_ref().unwrap(),
             self.minimum_signatures,
             self.private_address.clone(),
             self.currency_name.clone(),

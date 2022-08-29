@@ -15,17 +15,19 @@ async fn main() {
     // It is assumed that the first address that is pushed in the addresses array, will be the controlling address for the namecommitment.
     if let Ok(identity_builder) = Identity::builder()
         .testnet(true)
-        .on_currency_name("geckotest")
-        .name("aaaaai")
+        // .on_currency_name("geckotest")
+        .name("geckotest")
         // .referral("aaaaab.geckotest@")
-        .add_address(Address::from_str("RP1sexQNvjGPohJkK9JnuPDH7V7NboycGj").unwrap())
+        .add_address(Address::from_str("RTkW5eTcmcYMdibeby4bEoDJpCEe6EepY1").unwrap())
         .add_private_address(
-            "zs1pf0pjumxr6k5zdwupl8tnl58gqrpklznxhypjlzp3reaqpxdh0ce7qj2u7qfp8z8mc9pc39epgm",
+            "zs1nd372rzvccg9njpdafvxcq8zcqlfmcxyfn3rdmgfe879x77qt23h9f6t5f2q7zecz5jws0ame79",
         )
         .minimum_signatures(1)
-        .with_content_map(json!({ "deadbeef": "deadbeef"}))
+        // .with_content_map(json!({ "deadbeef": "deadbeef"}))
         .validate()
     {
+        debug!("{:#?}", identity_builder);
+
         let identity_result = identity_builder.create_identity().await;
 
         match identity_result {
