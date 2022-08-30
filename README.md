@@ -10,6 +10,9 @@ Add
 
 ```toml
 tokio = {version = "1", features = ["full"]}
+identitycreator = {version = "0.1.0", git = "https://github.com/jorian/identitycreator"}
+vrsc = "0.0.1"
+vrsc-rpc = "0.0.4"
 ```
 
 to your Cargo.toml.
